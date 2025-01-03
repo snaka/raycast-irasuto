@@ -1,19 +1,28 @@
 import { useState } from "react";
-import { Detail, Grid, LaunchProps } from "@raycast/api";
+import { ActionPanel, Grid, LaunchProps } from "@raycast/api";
 import { useFetch } from "@raycast/utils";
 import { parse } from "node-html-parser";
+import { CopyImageToClipboardAction } from "./components/CopyImageToClipboardAction";
+
+
+const THUMB_URL_DEFAULT = "https://3.bp.blogspot.com/-tB0SRYOut2g/Tx-XXdv4FtI/AAAAAAAABJU/rejihf5hfyk/s000/default.png";
+const ORIGINAL_IMAGE_SIZE = 800;
+
+function convertToOriginalUrl(url: string) {
+  return url.replace("s72-c", `s${ORIGINAL_IMAGE_SIZE}`);
+}
 
 type Item = {
-  id: number
-  url: string
+  original: string;
+  thumbnail: string;
 };
 
 interface Arguments {
-  keyword: string
+  keyword: string;
 }
 
-function SearchResult(props: { keyword: string }) {
-  const { keyword } = props;
+export default function Command(props: LaunchProps<{ arguments: Arguments }>) {
+  const { keyword } = props.arguments;
 
   const [items, setItems] = useState<Item[]>([]);
 
@@ -22,36 +31,40 @@ function SearchResult(props: { keyword: string }) {
     {
       onData: (data) => {
         const root = parse(data);
-        console.log('root:', root)
-        const images = root.querySelectorAll(".boxthumb");
-        console.log('images:', images)
-        const slicedImages = images.slice(0, 10);
+        const scriptsElements = root.querySelectorAll(".boxim a script");
 
-        const newItems = slicedImages.map((image, index) => ({
-          id: index,
-          url: image.getAttribute('src') || ''
-        }));
+        const imageUrls = [...scriptsElements].map(e => {
+          const url = e.textContent.replace(/^.+"(https:\/\/[^"]+?)".+$/gis, "$1") ?? THUMB_URL_DEFAULT;
+          return {
+            original: convertToOriginalUrl(url),
+            thumbnail: url
+          }
+        });
+
+        const newItems = imageUrls.map(({ original, thumbnail }) => {
+          return {
+            original,
+            thumbnail
+          };
+        });
         setItems(newItems);
       }
     }
-  )
+  );
 
   return (
     <Grid isLoading={isLoading}>
       {items.map(item => (
         <Grid.Item
-          key={item.id}
-          content={item.url}
+          key={item.thumbnail}
+          content={item.thumbnail}
+          actions={
+            <ActionPanel>
+              <CopyImageToClipboardAction title="Copy Image" url={item.original} />
+            </ActionPanel>
+          }
         />
       ))}
     </Grid>
-  )
-}
-
-export default function Command(props: LaunchProps<{ arguments: Arguments }>) {
-  const { keyword } = props.arguments
-
-  return (
-    keyword ? <SearchResult keyword={keyword} /> : <Detail markdown="Need arguments." />
-  )
+  );
 }
