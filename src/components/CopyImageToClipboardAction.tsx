@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { environment, Clipboard, Action } from "@raycast/api";
+import fetch from "node-fetch";
 import { useCallback } from "react";
 
 type Props = Omit<React.ComponentProps<typeof Action>, 'onAction'> & {
