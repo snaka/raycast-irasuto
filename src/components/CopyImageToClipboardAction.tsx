@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
-import { environment, Clipboard, Action } from "@raycast/api";
 import fetch from "node-fetch";
+import { environment, Clipboard, Action, showHUD, showToast, Toast } from "@raycast/api";
 import { useCallback } from "react";
+import { showFailureToast } from "@raycast/utils";
 
 type Props = Omit<React.ComponentProps<typeof Action>, 'onAction'> & {
   url: string;
@@ -9,12 +10,27 @@ type Props = Omit<React.ComponentProps<typeof Action>, 'onAction'> & {
 
 export function CopyImageToClipboardAction({ url, ...rest }: Props) {
   const copyImageToClipboard = useCallback(async () => {
-    const res = await fetch(url);
-    const arrayBuf = await res.arrayBuffer();
-    const downloadPath = `${environment.supportPath}/downloaded-image.png`;
-    await fs.writeFile(downloadPath, Buffer.from(arrayBuf));
+    try {
+      showToast({
+        title: "Downloading image...",
+        style: Toast.Style.Animated,
+      });
 
-    Clipboard.copy({ file: downloadPath });
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch image: ${res.statusText}`);
+      }
+
+      const downloadPath = `${environment.supportPath}/downloaded-image.png`;
+      const arrayBuf = await res.arrayBuffer();
+      await fs.writeFile(downloadPath, Buffer.from(arrayBuf));
+
+      Clipboard.copy({ file: downloadPath });
+      showHUD("Image copied to clipboard");
+    } catch (error) {
+      console.error(error);
+      showFailureToast(error, { title: "Failed to copy image to clipboard" });
+    }
   }, [url]);
 
   return <Action {...rest} onAction={copyImageToClipboard} />;
